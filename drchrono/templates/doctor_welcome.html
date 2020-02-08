@@ -1,11 +1,97 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Welcome to drchrono</title>
-</head>
-<body>
-<h1>Welcome {{ doctor.first_name }} {{ doctor.last_name }}</h1>
-{{ doctor }}
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Welcome{% endblock %}
+
+{% block extra_header %}
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.11"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+{% endblock %}
+
+{% block body %}
+<h1 class="title">Welcome {{ doctor.first_name }} {{ doctor.last_name }}</h1>
+<p class="subtitle">
+  Lifetime Average Wait time: {{ avg_wait }} minutes
+</p>
+
+<div id="app">
+  <table class="table">
+    <tbody>
+      <tr>
+        <th>Appointment ID</th>
+        <th>Patient ID</th>
+        <th>Scheduled Time</th>
+        <th>Status</th>
+        <th>Waiting Time</th>
+        <th>Action</th>
+      </tr>
+      <tr v-for="appt in appointments">
+        <td>${ appt.id }</td>
+        <td>${ appt.patient }</td>
+        <td>${ appt.scheduled_time }</td>
+        <td>${ appt.status }</td>
+        <td>
+          <span v-if="appt.arrived_at">
+            ${ moment.duration(moment(appt.seen_at).diff(appt.arrived_at)).asMinutes() } minutes
+          </span>
+          <span v-else>&mdash;</span>
+        </td>
+        <td>
+          <span v-if="appt.status == 'Arrived'">
+            <button class="button is-primary is-small" v-on:click="updateStatus(appt.id, 'In Session')">Start Appointment</button>
+          </span>
+          <span v-if="appt.status == 'In Session'">
+            <button class="button is-danger is-small" v-on:click="updateStatus(appt.id, 'Complete')">End Appointment</button>
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <span v-if="appointments.length == 0">No Appointments found.</span>
+</div>
+<script type="text/javascript">
+  var app = new Vue({
+    el: '#app',
+    delimiters: ['${', '}'],
+    data: {
+      appointments: null,
+      polling: null
+    },
+    methods: {
+      getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+          var cookies = document.cookie.split(';');
+          for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            // Does this cookie string begin with the name we want?
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      },
+      loadData() {
+        axios
+          .get('/appointments?doctor={{ doctor.id }}')
+          .then(response => (this.appointments = response.data.data));
+      },
+      updateStatus(id, status) {
+        var config = {headers: {'X-CSRFToken': this.getCookie('csrftoken')}};
+        axios
+          .patch('/appointments/' + id + '/', {status: status}, config)
+          .then(() => this.loadData());
+      }
+    },
+    mounted() {
+      this.loadData();
+      this.polling = setInterval(this.loadData, 60000);
+    },
+    beforeDestroy () {
+      clearInterval(this.polling);
+    }
+  })
+</script>
+{% endblock %}
