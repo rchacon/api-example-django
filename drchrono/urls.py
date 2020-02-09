@@ -13,6 +13,9 @@ urlpatterns = [
     url(r'^appointments/$', views.AppointmentListAPI.as_view(), name='appointments_list_api'),
     url(r'^appointments/(?P<appointment_id>[0-9]+)/$', views.AppointmentAPI.as_view()),
     url(r'^webhook/$', views.webhook),
+    url(r'^checkin/$', views.CheckinView.as_view(), name='checkin'),
+    url(r'^confirm/(?P<appointment_id>[0-9]+)/$', views.ConfirmView.as_view(), name='confirm'),
+    url(r'^thanks/$', views.ThanksView.as_view(), name='thanks'),
     url(r'^admin/', include(admin.site.urls)),
     url(r'', include('social.apps.django_app.urls', namespace='social')),
 ]

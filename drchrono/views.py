@@ -1,18 +1,21 @@
-from datetime import datetime
+from datetime import date, datetime
 import hashlib
 import hmac
 import json
 import time
 
-from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
+from django.urls import reverse_lazy
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
+from django.views.generic.edit import FormView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from social_django.models import UserSocialAuth
 from social_django.utils import load_strategy
 
-from drchrono.endpoints import AppointmentEndpoint, DoctorEndpoint
+from drchrono.endpoints import AppointmentEndpoint, DoctorEndpoint, PatientEndpoint
+from drchrono.forms import CheckInForm, ConfirmForm
 from drchrono.models import AppointmentTransition
 from drchrono.settings import WEBHOOK_SECRET_TOKEN
 
@@ -151,3 +154,111 @@ def webhook(request):
         return HttpResponse(status=204)
 
     return HttpResponseBadRequest()
+
+
+class CheckinView(FormView):
+    template_name = 'checkin.html'
+    form_class = CheckInForm
+    appointment_id = None
+
+    def get_success_url(self):
+        return reverse_lazy('confirm', args=(self.appointment_id,))
+
+    def form_valid(self, form):
+        """
+        Find patient's appointment
+        """
+        first_name = form.cleaned_data['first_name']
+        last_name = form.cleaned_data['last_name']
+
+        token = get_token()
+
+        # find patient
+        patient_api = PatientEndpoint(token)
+        patient = next(patient_api.list(params={'first_name': first_name, 'last_name': last_name}))
+
+        if not patient:
+            HttpResponseBadRequest('Patient not found.')
+
+        # find appointment
+        appt_api = AppointmentEndpoint(token)
+        today = date.today().strftime('%Y-%m-%d')
+        appt = next(appt_api.list(params={'patient': patient['id'], 'date': today}))
+
+        if not appt:
+            HttpResponseBadRequest('Appointment not found.')
+
+        self.appointment_id = appt['id']
+
+        return super(CheckinView, self).form_valid(form)
+
+
+class ConfirmView(FormView):
+    template_name = 'confirm.html'
+    form_class = ConfirmForm
+    success_url = reverse_lazy('thanks')
+    appointment = None
+
+    def get_context_data(self, **kwargs):
+        """Use this to add extra context."""
+        context = super(ConfirmView, self).get_context_data(**kwargs)
+        context['appointment'] = self.kwargs['appointment_id']
+
+        return context
+
+    def get_initial(self):
+        """
+        Prepopulate form with patient's demographic data
+        """
+        initial = super(ConfirmView, self).get_initial()
+
+        token = get_token()
+        appt_api = AppointmentEndpoint(token)
+        self.appointment = appt_api.fetch(self.kwargs['appointment_id'])
+        if not self.appointment:
+            raise Http404('Appointment %s does not exist.' % self.kwargs['appointment_id'])
+
+        patient_api = PatientEndpoint(token)
+        patient = patient_api.fetch(self.appointment['patient'])
+        if not patient:
+            raise Http404('Patient profile not found.')
+
+        initial.update({
+            'first_name': patient['first_name'],
+            'last_name': patient['last_name'],
+            'email': patient['email'],
+            'gender': patient['gender'],
+            'race': patient['race'],
+            'ethnicity': patient['ethnicity'],
+            'preferred_language': patient['preferred_language']
+        })
+
+        return initial
+
+    def form_valid(self, form):
+        """
+        Update demographic info. Set appointment to Arrived.
+        """
+        token = get_token()
+
+        # update demographic data
+        patient_api = PatientEndpoint(token)
+        patient_api.update(self.appointment['patient'], {
+            'first_name': form.cleaned_data['first_name'],
+            'last_name': form.cleaned_data['last_name'],
+            'email': form.cleaned_data['email'],
+            'gender': form.cleaned_data['gender'],
+            'race': form.cleaned_data['race'],
+            'ethnicity': form.cleaned_data['ethnicity'],
+            'preferred_language': form.cleaned_data['preferred_language']
+        })
+
+        # Set appt to arrived
+        appt_api = AppointmentEndpoint(token)
+        appt_api.update(self.kwargs['appointment_id'], {'status': 'Arrived'})
+
+        return super(ConfirmView, self).form_valid(form)
+
+
+class ThanksView(TemplateView):
+    template_name = 'thanks.html'
