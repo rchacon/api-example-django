@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import enum
 import hashlib
 import hmac
 import json
@@ -18,6 +19,12 @@ from drchrono.endpoints import AppointmentEndpoint, DoctorEndpoint, PatientEndpo
 from drchrono.forms import CheckInForm, ConfirmForm
 from drchrono.models import AppointmentTransition
 from drchrono.settings import WEBHOOK_SECRET_TOKEN
+
+
+class AppointmentStatus(enum.Enum):
+    ARRIVED = 'Arrived'
+    IN_SESSION = 'In Session'
+    COMPLETE = 'Complete'
 
 
 def get_token():
@@ -175,18 +182,18 @@ class CheckinView(FormView):
 
         # find patient
         patient_api = PatientEndpoint(token)
-        patient = next(patient_api.list(params={'first_name': first_name, 'last_name': last_name}))
-
-        if not patient:
-            HttpResponseBadRequest('Patient not found.')
+        try:
+            patient = next(patient_api.list(params={'first_name': first_name, 'last_name': last_name}))
+        except StopIteration:
+            raise Http404('Patient not found. Please see receptionist.')
 
         # find appointment
         appt_api = AppointmentEndpoint(token)
         today = date.today().strftime('%Y-%m-%d')
-        appt = next(appt_api.list(params={'patient': patient['id'], 'date': today}))
-
-        if not appt:
-            HttpResponseBadRequest('Appointment not found.')
+        try:
+            appt = next(appt_api.list(params={'patient': patient['id'], 'date': today}))
+        except StopIteration:
+            raise Http404('Appointment not found. Please see receptionist.')
 
         self.appointment_id = appt['id']
 
@@ -255,7 +262,7 @@ class ConfirmView(FormView):
 
         # Set appt to arrived
         appt_api = AppointmentEndpoint(token)
-        appt_api.update(self.kwargs['appointment_id'], {'status': 'Arrived'})
+        appt_api.update(self.kwargs['appointment_id'], {'status': AppointmentStatus.ARRIVED.value})
 
         return super(ConfirmView, self).form_valid(form)
 

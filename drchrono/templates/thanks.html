@@ -2,4 +2,9 @@
 
 {% block body %}
 <h1 class="title">Thank You</h1>
+<script type="text/javascript">
+  setTimeout(() => {
+    window.location.replace({% url 'checkin' %});
+  }, 5000);
+</script>
 {% endblock %}

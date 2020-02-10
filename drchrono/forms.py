@@ -24,14 +24,34 @@ RACE = [
 
 
 class CheckInForm(forms.Form):
-    first_name = forms.CharField(label='First Name', max_length=50)
-    last_name = forms.CharField(label='Last Name', max_length=50)
+    first_name = forms.CharField(
+        label='First Name',
+        max_length=50,
+        widget=forms.TextInput(attrs={'class': 'input', 'autocomplete': 'off'})
+    )
+    last_name = forms.CharField(
+        label='Last Name',
+        max_length=50,
+        widget=forms.TextInput(attrs={'class': 'input', 'autocomplete': 'off'})
+    )
 
 
 class ConfirmForm(forms.Form):
-    first_name = forms.CharField(label='First Name', max_length=50)
-    last_name = forms.CharField(label='Last Name', max_length=50)
-    email = forms.CharField(label='Email', max_length=50)
+    first_name = forms.CharField(
+        label='First Name',
+        max_length=50,
+        widget=forms.TextInput(attrs={'class': 'input', 'autocomplete': 'off'})
+    )
+    last_name = forms.CharField(
+        label='Last Name',
+        max_length=50,
+        widget=forms.TextInput(attrs={'class': 'input', 'autocomplete': 'off'})
+    )
+    email = forms.CharField(
+        label='Email',
+        max_length=50,
+        widget=forms.EmailInput(attrs={'class': 'input', 'autocomplete': 'off'})
+    )
     gender = forms.CharField(
         label='Gender',
         widget=forms.Select(choices=GENDER)
