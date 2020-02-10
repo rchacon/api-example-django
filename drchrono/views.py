@@ -5,6 +5,7 @@ import hmac
 import json
 import time
 
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.urls import reverse_lazy
 from django.views.decorators.csrf import csrf_exempt
@@ -163,7 +164,9 @@ def webhook(request):
     return HttpResponseBadRequest()
 
 
-class CheckinView(FormView):
+class CheckinView(LoginRequiredMixin, FormView):
+    login_url = reverse_lazy('setup')
+    redirect_field_name = 'redirect_to'
     template_name = 'checkin.html'
     form_class = CheckInForm
     appointment_id = None
@@ -200,7 +203,9 @@ class CheckinView(FormView):
         return super(CheckinView, self).form_valid(form)
 
 
-class ConfirmView(FormView):
+class ConfirmView(LoginRequiredMixin, FormView):
+    login_url = reverse_lazy('setup')
+    redirect_field_name = 'redirect_to'
     template_name = 'confirm.html'
     form_class = ConfirmForm
     success_url = reverse_lazy('thanks')
