@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 
+{% load i18n %}
+
 {% block body %}
-<h1 class="title">Check In</h1>
+<h1 class="title">{% trans 'Check In' %}</h1>
 
 <form action="{% url 'checkin' %}" method="post">
   {% csrf_token %}
