@@ -11,6 +11,7 @@ from django.urls import reverse_lazy
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
 from django.views.generic.edit import FormView
+import pytz
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from social_django.models import UserSocialAuth
@@ -99,9 +100,9 @@ class AppointmentListAPI(APIView):
 
         for transition in transitions:
             if transition.status == 'Arrived':
-                appt_map[transition.appointment]['arrived_at'] = transition.updated_at
+                appt_map[transition.appointment]['arrived_at'] = transition.updated_at.replace(tzinfo=pytz.timezone('America/New_York'))
             elif transition.status == 'In Session':
-                appt_map[transition.appointment]['seen_at'] = transition.updated_at
+                appt_map[transition.appointment]['seen_at'] = transition.updated_at.replace(tzinfo=pytz.timezone('America/New_York'))
 
         for appt in result:
             appt.update(appt_map[int(appt['id'])])
@@ -127,6 +128,12 @@ def webhook(request):
     """
     Save appointment transitions to database.
     """
+    def localize(dt):
+        unaware = datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S')
+        aware = unaware.replace(tzinfo=pytz.timezone('America/New_York'))
+
+        return aware
+
     events = ('APPOINTMENT_CREATE', 'APPOINTMENT_DELETE', 'APPOINTMENT_MODIFY')
 
     if request.method == 'GET':
@@ -154,8 +161,8 @@ def webhook(request):
             doctor=obj['doctor'],
             status=obj['status'],
             event=request.META.get('HTTP_X_DRCHRONO_EVENT').split('_')[1],
-            scheduled_time=obj['scheduled_time'],
-            updated_at=obj['updated_at']
+            scheduled_time=localize(obj['scheduled_time']),
+            updated_at=localize(obj['updated_at'])
         )
         appt.save()
 

@@ -31,8 +31,11 @@
         <td>${ appt.scheduled_time }</td>
         <td>${ appt.status }</td>
         <td>
-          <span v-if="appt.arrived_at">
+          <span v-if="appt.arrived_at && appt.seen_at">
             ${ moment.duration(moment(appt.seen_at).diff(appt.arrived_at)).asMinutes() } minutes
+          </span>
+          <span v-else-if="appt.arrived_at">
+            ${ moment().diff(appt.arrived_at, 'minutes') } minutes
           </span>
           <span v-else>&mdash;</span>
         </td>
